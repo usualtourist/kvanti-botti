@@ -5,7 +5,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from tutor_bot import TutorBot, BotConfig, TOPIC_CONFIGS, DATASET_EXERCISES
+from tutor_bot import TutorBot, BotConfig, DATASET_EXERCISES
 
 
 # --------------------------------------------------
@@ -235,7 +235,7 @@ def get_api_key() -> str | None:
 # Botin alustus
 # --------------------------------------------------
 
-def init_bot(topic_key: str) -> TutorBot:
+def init_bot(study_topic: str) -> TutorBot:
     api_key = get_api_key()
 
     if not api_key:
@@ -248,7 +248,7 @@ def init_bot(topic_key: str) -> TutorBot:
     client = OpenAI(api_key=api_key)
 
     config = BotConfig(
-        topic_key=topic_key,
+        custom_topic=study_topic,
         main_model=st.session_state.get("main_model", "gpt-4o"),
         judge_model="gpt-4o-mini",
         temperature=st.session_state.get("temperature", 0.4),
@@ -258,41 +258,47 @@ def init_bot(topic_key: str) -> TutorBot:
     return TutorBot(client, config)
 
 
-def reset_session(topic_key: str, lesson_goal: str | None = None) -> None:
-    st.session_state.bot = init_bot(topic_key)
+def reset_session(study_topic: str) -> None:
+    """
+    Aloittaa uuden opiskeluhetken käyttäjän itse syöttämällä aiheella.
+    Kvanti vastaa heti ensimmäisen aiheen perusteella.
+    """
+    st.session_state.bot = init_bot(study_topic)
     st.session_state.messages = []
     st.session_state.study_summary = None
     st.session_state.review = None
     st.session_state.dataset_exercise = None
-    st.session_state.current_topic = topic_key
-    st.session_state.module_choice_made = True
+    st.session_state.study_topic = study_topic
+    st.session_state.lesson_goal = study_topic
+    st.session_state.study_started = True
 
     bot: TutorBot = st.session_state.bot
 
-    if lesson_goal:
-        user_msg = f"Tällä oppitunnilla haluan opiskella tätä: {lesson_goal}"
-        st.session_state.messages.append(
-            {"role": "user", "content": user_msg}
-        )
+    # Näytetään opiskelijan syöttämä aihe keskustelussa käyttäjän viestinä.
+    visible_user_msg = f"Tällä oppitunnilla haluan opiskella tätä: {study_topic}"
 
-        reply = bot.ask(
-            "Opiskelijan tavoite tälle oppitunnille on: "
-            f"{lesson_goal}. Aloita opiskeluhetki lyhyellä kuittauksella "
-            "ja ohjaa opiskelija liikkeelle valitun moduulin mukaisesti."
-        )
+    st.session_state.messages.append(
+        {"role": "user", "content": visible_user_msg}
+    )
 
-        st.session_state.messages.append(
-            {"role": "assistant", "content": reply}
-        )
-    else:
-        opening = bot.opening_message()
+    # Lähetetään Kvantille sisäinen aloitusohje heti.
+    first_prompt = (
+        f"Opiskelijan opiskeltava aihe tällä oppitunnilla on: {study_topic}. "
+        "Aloita keskustelu heti. "
+        "Tee seuraavat asiat: "
+        "1) Kuittaa opiskelijan aihe yhdellä lauseella. "
+        "2) Kerro lyhyesti, mihin kvantitatiivisen tutkimuksen osa-alueeseen aihe liittyy. "
+        "3) Anna yksi pieni ihmistieteellinen esimerkki. "
+        "4) Kysy yksi tarkentava kysymys opiskelijalta. "
+        "Älä jää odottamaan opiskelijan seuraavaa viestiä."
+    )
 
-        bot.history.append(
-            {"role": "assistant", "content": opening}
-        )
-        st.session_state.messages.append(
-            {"role": "assistant", "content": opening}
-        )
+    reply = bot.ask(first_prompt)
+
+    st.session_state.messages.append(
+        {"role": "assistant", "content": reply}
+    )
+
 
 
 # --------------------------------------------------
@@ -305,9 +311,10 @@ for key, default in [
     ("study_summary", None),
     ("review", None),
     ("dataset_exercise", None),
-    ("current_topic", None),
-    ("module_choice_made", False),
+    ("study_topic", None),
     ("lesson_goal", ""),
+    ("lesson_goal_input", ""),
+    ("study_started", False),
     ("main_model", "gpt-4o"),
     ("temperature", 0.4),
     ("max_turns", 40),
@@ -364,10 +371,10 @@ Kvanti on opiskelutuutori, joka auttaa oppimaan kvantitatiivisia tutkimusmenetel
 **Näin käytät:**
 
 1. Hyväksy tietoturvahuomio.
-2. Kerro, mitä haluat opiskella tällä oppitunnilla.
-3. Valitse sopiva moduuli.
+2. Kirjoita, mitä haluat opiskella tällä oppitunnilla.
+3. Kvanti aloittaa aiheen jäsentämisen.
 4. Kysy, pohdi tai vastaa Kvantin kysymyksiin.
-5. Avaa dataset-harjoituksia.
+5. Avaa tarvittaessa dataset-harjoituksia.
 6. Käytä toimintoa **Kertaa oppimaasi**.
 7. Vie keskustelu tarvittaessa tiedostona.
 
@@ -377,31 +384,13 @@ Kvanti ei tee arvioitavia tehtäviä puolestasi.
 
     st.divider()
 
-    st.markdown("### 📚 Moduuli")
+    st.markdown("### 📚 Opiskeltava asia")
 
-    topic_options = {k: v["display_name"] for k, v in TOPIC_CONFIGS.items()}
-
-    if st.session_state.module_choice_made and st.session_state.current_topic:
-        selected_topic = st.selectbox(
-            "Vaihda moduulia",
-            options=list(topic_options.keys()),
-            format_func=lambda k: topic_options[k],
-            index=list(topic_options.keys()).index(st.session_state.current_topic),
-        )
-
-        if selected_topic != st.session_state.current_topic:
-            st.warning("Moduuli vaihtuu vasta, kun painat nappia.")
-
-            if st.button("🔄 Vaihda moduuli", use_container_width=True):
-                if st.session_state.get("consent_given"):
-                    reset_session(selected_topic)
-                    st.rerun()
-                else:
-                    st.error("Hyväksy ensin tietoturvahuomio.")
+    if st.session_state.study_topic:
+        st.info(st.session_state.study_topic)
     else:
         st.info(
-            "Moduuli valitaan aloitusnäkymässä sen jälkeen, kun olet kertonut, "
-            "mitä haluat opiskella."
+            "Opiskeltava asia kysytään aloitusnäkymässä ennen keskustelun alkua."
         )
 
     st.divider()
@@ -535,15 +524,17 @@ Rajoittaa keskustelun pituutta ja kustannuksia.
             st.session_state.study_summary = None
             st.session_state.review = None
             st.session_state.dataset_exercise = None
-            st.session_state.current_topic = None
-            st.session_state.module_choice_made = False
+            st.session_state.study_topic = None
             st.session_state.lesson_goal = ""
+            st.session_state.lesson_goal_input = ""
+            st.session_state.study_started = False
             st.rerun()
         else:
             st.error("Hyväksy ensin tietoturvahuomio.")
 
+
     st.divider()
-    st.caption("📊 Kvanti v1.2 — kvantitatiivisten menetelmien tutori")
+    st.caption("📊 Kvanti v1.3 — kvantitatiivisten menetelmien tutori")
 
 
 # --------------------------------------------------
@@ -592,59 +583,61 @@ Vastuu siitä, mitä palveluun syötät, on käyttäjällä.
 
 
 # --------------------------------------------------
-# Aloitusnäkymä: kysytään ensin oppitunnin tavoite
+# Aloitusnäkymä: käyttäjä syöttää opiskeltavan asian
 # --------------------------------------------------
 
-if not st.session_state.module_choice_made:
+if not st.session_state.study_started:
     st.markdown(
         """
 <div class="kvanti-banner">
 📐 <b>Tervetuloa Kvantin opiskeluhetkeen.</b><br><br>
-Ennen kuin aloitamme, kerro lyhyesti:
-<b>mitä tutkitte tai opiskelette tällä oppitunnilla?</b>
-Tämän jälkeen valitset sopivan moduulin.
+Kerro ensin omin sanoin:
+<b>mitä tutkitte tai opiskelette tällä oppitunnilla?</b><br><br>
+Voit kirjoittaa esimerkiksi menetelmän, käsitteen, tutkimusongelman
+tai asian, joka tuntuu epäselvältä.
 </div>
 """,
         unsafe_allow_html=True,
     )
 
-    lesson_goal = st.text_area(
-        "Mitä haluat opiskella tällä oppitunnilla?",
-        value=st.session_state.lesson_goal,
-        placeholder=(
-            "Esimerkiksi: Haluan ymmärtää, milloin käytetään t-testiä "
-            "ja milloin Mann-Whitneyn U-testiä."
-        ),
-        height=140,
-    )
+    with st.form("start_study_form", clear_on_submit=False):
+        lesson_goal = st.text_area(
+            "Mitä haluat opiskella tällä oppitunnilla?",
+            key="lesson_goal_input",
+            placeholder=(
+                "Esimerkiksi: Haluan ymmärtää, milloin käytetään t-testiä "
+                "ja milloin Mann-Whitneyn U-testiä.\n\n"
+                "Tai: Opiskelemme p-arvoa ja hypoteesien testaamista.\n\n"
+                "Tai: Tutkimme opiskelijoiden hyvinvoinnin ja opiskelutuntien yhteyttä."
+            ),
+            height=170,
+        )
 
-    st.session_state.lesson_goal = lesson_goal
+        submitted = st.form_submit_button("🚀 Aloita opiskelu")
 
-    topic_options = {k: v["display_name"] for k, v in TOPIC_CONFIGS.items()}
-
-    chosen_topic = st.selectbox(
-        "Valitse moduuli",
-        options=list(topic_options.keys()),
-        format_func=lambda k: topic_options[k],
-        index=0,
-    )
-
-    if st.button("🚀 Aloita opiskelu valitusta moduulista"):
+    if submitted:
         if not lesson_goal.strip():
             st.error("Kirjoita ensin lyhyesti, mitä haluat opiskella.")
         else:
-            reset_session(chosen_topic, lesson_goal=lesson_goal.strip())
+            with st.spinner("📐 Kvanti aloittaa opiskeluhetken..."):
+                reset_session(lesson_goal.strip())
+
             st.rerun()
 
     st.stop()
 
 
+
 # --------------------------------------------------
-# Botin alustus
+# Botin alustus varmuuden vuoksi
 # --------------------------------------------------
 
 if st.session_state.bot is None:
-    reset_session(st.session_state.current_topic or "tutkimusprosessi")
+    if st.session_state.study_topic:
+        reset_session(st.session_state.study_topic)
+    else:
+        st.session_state.study_started = False
+        st.rerun()
 
 
 bot: TutorBot = st.session_state.bot
@@ -656,12 +649,12 @@ km = bot.knowledge_map
 # Otsikko ja banneri
 # --------------------------------------------------
 
-st.markdown(f"### `> Moduuli: {topic_cfg['display_name']}`")
+st.markdown(f"### `> Opiskeltava asia: {topic_cfg['display_name']}`")
 
 st.markdown(
     f"""
 <div class="kvanti-banner">
-📐 <b>Kvanti</b> on opiskelutuutorisi aiheessa
+📐 <b>Kvanti</b> auttaa sinua opiskelemaan aihetta
 <code>{topic_cfg['topic_text']}</code>. Kysy, pohdi ja anna Kvantin
 ohjata sinua kysymyksillä ja harjoituksilla.
 </div>
@@ -685,15 +678,13 @@ def build_export_md() -> str:
     }
 
     lines = [
-        f"# Kvanti — opiskelusessio: {topic_cfg['display_name']}",
+        f"# Kvanti — opiskelusessio",
         "",
         f"*Viety: {datetime.now().strftime('%Y-%m-%d %H:%M')}*",
         "",
-        f"**Moduuli:** {topic_cfg['topic_text']}  ",
+        f"**Opiskeltava asia:** {topic_cfg['topic_text']}  ",
         f"**Edistyminen:** {int(current_ratio * 100)} %  ",
         f"**Vuoroja:** {bot.turn_count}",
-        "",
-        f"**Oppitunnin tavoite:** {st.session_state.lesson_goal}",
         "",
         "## Opeteltavat asiat",
         "",
@@ -771,6 +762,14 @@ with left_col:
             st.markdown(msg["content"])
 
     if prompt := st.chat_input("Kysy, vastaa tai pohdi ääneen..."):
+        user_turns = len(
+            [m for m in st.session_state.messages if m["role"] == "user"]
+        )
+
+        if user_turns >= st.session_state.max_turns:
+            st.error("Maksimivuoromäärä on saavutettu. Aloita uusi opiskeluhetki.")
+            st.stop()
+
         st.session_state.messages.append(
             {"role": "user", "content": prompt}
         )
@@ -824,7 +823,7 @@ with right_col:
         <div class="right-panel">
             <h3>📚 Opeteltavat asiat</h3>
             <div class="right-panel-note">
-                Tämän moduulin keskeiset osa-alueet ja niiden tila keskustelun pohjalta.
+                Tämän opiskeluhetken keskeiset osa-alueet ja niiden tila keskustelun pohjalta.
             </div>
         </div>
         """,
@@ -941,8 +940,13 @@ with right_col:
 
     st.divider()
 
+    safe_topic = "".join(
+        char.lower() if char.isalnum() else "_"
+        for char in (st.session_state.study_topic or "opiskelu")
+    )[:40]
+
     filename = (
-        f"kvanti_{st.session_state.current_topic}_"
+        f"kvanti_{safe_topic}_"
         f"{datetime.now().strftime('%Y%m%d_%H%M')}.md"
     )
 

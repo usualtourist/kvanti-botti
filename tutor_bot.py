@@ -9,8 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 # --------------------------------------------------
-# Aihekohtainen konfiguraatio
+# Valmiit aihekuvaukset
 # --------------------------------------------------
+# Nämä säilytetään taustalla hyödyllisinä viitteinä, mutta käyttöliittymä
+# ei enää pakota opiskelijaa valitsemaan moduulia.
 
 TOPIC_CONFIGS = {
     "tutkimusprosessi": {
@@ -18,9 +20,8 @@ TOPIC_CONFIGS = {
         "topic_text": "kvantitatiivisen tutkimuksen prosessi ja otanta",
         "opening_message": (
             "Aloitetaan kvantitatiivisen tutkimuksen prosessista. "
-            "Tässä moduulissa tarkastelemme tutkimusongelman muotoilua, "
-            "tutkimuksen vaiheita, aineiston kokoamista ja otantaa. "
-            "Kerro ensin omin sanoin, millaista ilmiötä haluaisit tutkia."
+            "Tässä aiheessa tarkastellaan tutkimusongelman muotoilua, "
+            "tutkimuksen vaiheita, aineiston kokoamista ja otantaa."
         ),
         "areas": {
             "tutkimusongelma": (
@@ -41,10 +42,9 @@ TOPIC_CONFIGS = {
         "display_name": "Teoreettinen käsite ja mittaaminen",
         "topic_text": "teoreettisen käsitteen mittaaminen ja mittaustasot",
         "opening_message": (
-            "Aloitetaan mittaamisesta. Tässä moduulissa tarkastelemme, "
+            "Aloitetaan mittaamisesta. Tässä aiheessa tarkastellaan, "
             "miten teoreettinen käsite muutetaan mitattavaksi ja mitä "
-            "mittaustasot tarkoittavat. Voisitko aluksi kertoa, miten "
-            "ymmärrät käsitteen operationalisointi?"
+            "mittaustasot tarkoittavat."
         ),
         "areas": {
             "kasite_ja_operationalisointi": (
@@ -65,9 +65,8 @@ TOPIC_CONFIGS = {
         "display_name": "Tilastollinen kuvailu ja tunnusluvut",
         "topic_text": "tilastollisen kuvailun perusteet ja tunnusluvut",
         "opening_message": (
-            "Aloitetaan tilastollisesta kuvailusta. Tässä moduulissa käsitellään "
-            "frekvenssijakaumia, keskilukuja, hajontalukuja, taulukoita ja kuvaajia. "
-            "Mitä ajattelet: miksi pelkkä keskiarvo ei aina riitä kuvaamaan aineistoa?"
+            "Aloitetaan tilastollisesta kuvailusta. Tässä aiheessa käsitellään "
+            "frekvenssijakaumia, keskilukuja, hajontalukuja, taulukoita ja kuvaajia."
         ),
         "areas": {
             "frekvenssijakaumat": (
@@ -88,9 +87,8 @@ TOPIC_CONFIGS = {
         "display_name": "Tilastollinen päättely ja hypoteesien testaaminen",
         "topic_text": "tilastollisen päättelyn perusteet ja hypoteesien testaaminen",
         "opening_message": (
-            "Aloitetaan tilastollisesta päättelystä. Tässä moduulissa käsitellään "
-            "otosta, perusjoukkoa, hypoteeseja, p-arvoa ja merkitsevyystasoa. "
-            "Mitä ajattelet: miksi otoksen perusteella tehdään päätelmiä perusjoukosta?"
+            "Aloitetaan tilastollisesta päättelystä. Tässä aiheessa käsitellään "
+            "otosta, perusjoukkoa, hypoteeseja, p-arvoa ja merkitsevyystasoa."
         ),
         "areas": {
             "otos_ja_perusjoukko": (
@@ -114,9 +112,8 @@ TOPIC_CONFIGS = {
         ),
         "opening_message": (
             "Aloitetaan muuttujien välisestä riippuvuudesta ja ryhmien vertailusta. "
-            "Tässä moduulissa käsitellään korrelaatiota, ristiintaulukointia, "
-            "t-testiä ja Mann-Whitneyn U-testiä. Haluatko aloittaa yhteyden "
-            "tutkimisesta vai kahden ryhmän vertailusta?"
+            "Tässä aiheessa käsitellään korrelaatiota, ristiintaulukointia, "
+            "t-testiä ja Mann-Whitneyn U-testiä."
         ),
         "areas": {
             "korrelaatio": (
@@ -134,6 +131,44 @@ TOPIC_CONFIGS = {
         },
     },
 }
+
+
+# --------------------------------------------------
+# Dynaaminen aihe käyttäjän syötteestä
+# --------------------------------------------------
+
+def make_custom_topic_config(custom_topic: str) -> dict:
+    """
+    Luo käyttäjän itse kirjoittamasta aiheesta Kvantin opiskeluaihe.
+
+    Tätä käytetään, kun käyttöliittymässä ei ole moduulivalintaa, vaan
+    opiskelija kertoo omin sanoin mitä haluaa opiskella.
+    """
+    topic = custom_topic.strip() or "kvantitatiivinen tutkimusmenetelmä"
+
+    return {
+        "display_name": topic,
+        "topic_text": topic,
+        "opening_message": (
+            f"Aloitetaan aiheesta: {topic}. "
+            "Kerro ensin, mikä tässä aiheessa on sinulle epäselvää "
+            "tai mitä haluaisit osata oppitunnin lopuksi."
+        ),
+        "areas": {
+            "peruskasitteet": (
+                "Aiheeseen liittyvät keskeiset käsitteet ja niiden merkitys."
+            ),
+            "tutkimusongelma_ja_aineisto": (
+                "Miten aihe liittyy tutkimusongelmaan, muuttujien valintaan ja aineistoon."
+            ),
+            "menetelman_valinta": (
+                "Milloin ja miksi tähän aiheeseen liittyvää menetelmää tai ajattelutapaa käytetään."
+            ),
+            "tulkinta_ja_raportointi": (
+                "Tulosten tulkinta, rajoitteet sekä raportointi taulukoiden, kuvaajien tai sanallisen tulkinnan avulla."
+            ),
+        },
+    }
 
 
 # --------------------------------------------------
@@ -171,9 +206,9 @@ Tässä pienessä esimerkkiaineistossa tarkastellaan, liittyykö viikoittainen o
 ### Vinkki
 
 Pearsonin korrelaatio kuvaa kahden määrällisen muuttujan lineaarista yhteyttä.
-"""
+""",
     },
-    "ristiintaulukointi_opintotyytyvaisyys": {
+    "ristiintaulukointi_opintotyyvaisyys": {
         "display_name": "Ristiintaulukointi: opiskelumuoto ja tyytyväisyys",
         "recommended_topic": "riippuvuus",
         "content": """
@@ -198,7 +233,7 @@ Tässä aineistossa tarkastellaan, liittyykö opiskelumuoto opiskelutyytyväisyy
 ### Vinkki
 
 Ristiintaulukointi sopii erityisesti luokitteluasteikollisten muuttujien yhteyden tarkasteluun.
-"""
+""",
     },
     "ttesti_opetusryhmat": {
         "display_name": "t-testi: kahden opetusryhmän vertailu",
@@ -229,7 +264,7 @@ Tarkastellaan kahden opetusryhmän tenttipisteitä.
 ### Vinkki
 
 t-testillä voidaan tutkia, eroavatko kahden riippumattoman ryhmän keskiarvot tilastollisesti merkitsevästi toisistaan.
-"""
+""",
     },
     "mannwhitney_asenne": {
         "display_name": "Mann-Whitney U: kahden ryhmän vertailu",
@@ -259,7 +294,7 @@ Tarkastellaan kahden ryhmän asennepisteitä asteikolla 1–5.
 ### Vinkki
 
 Mann-Whitneyn U-testiä käytetään usein, kun vertaillaan kahta riippumatonta ryhmää ja muuttuja on järjestysasteikollinen tai normaalijakaumaoletus ei ole perusteltu.
-"""
+""",
     },
     "kuvailu_tunnusluvut": {
         "display_name": "Tunnusluvut: keskiluvut ja hajonta",
@@ -291,7 +326,7 @@ Tässä aineistossa on kahdeksan opiskelijan tenttipisteet.
 ### Vinkki
 
 Keskiarvo voi olla herkkä poikkeaville havainnoille. Mediaani kestää usein paremmin vinoutuneita jakaumia.
-"""
+""",
     },
 }
 
@@ -301,6 +336,15 @@ Keskiarvo voi olla herkkä poikkeaville havainnoille. Mediaani kestää usein pa
 # --------------------------------------------------
 
 class KnowledgeMap(BaseModel):
+    """
+    Dynaaminen osaamiskartta.
+
+    Arvot:
+    - tuntematon
+    - osittain
+    - hallussa
+    """
+
     model_config = {"extra": "allow"}
 
     @classmethod
@@ -309,8 +353,10 @@ class KnowledgeMap(BaseModel):
 
     def completion_ratio(self) -> float:
         values = list(self.model_dump().values())
+
         if not values:
             return 0.0
+
         mastered = sum(1 for value in values if value == "hallussa")
         return mastered / len(values)
 
@@ -324,7 +370,8 @@ class KnowledgeMap(BaseModel):
 
 @dataclass
 class BotConfig:
-    topic_key: str = "tutkimusprosessi"
+    topic_key: str = "custom"
+    custom_topic: str | None = None
     main_model: str = "gpt-4o"
     judge_model: str = "gpt-4o-mini"
     temperature: float = 0.4
@@ -332,7 +379,13 @@ class BotConfig:
 
     @property
     def topic_cfg(self) -> dict:
-        return TOPIC_CONFIGS[self.topic_key]
+        if self.custom_topic:
+            return make_custom_topic_config(self.custom_topic)
+
+        if self.topic_key in TOPIC_CONFIGS:
+            return TOPIC_CONFIGS[self.topic_key]
+
+        return make_custom_topic_config("kvantitatiivinen tutkimusmenetelmä")
 
 
 # --------------------------------------------------
@@ -343,9 +396,12 @@ class TutorBot:
     def __init__(self, client: OpenAI, config: BotConfig):
         self.client = client
         self.config = config
+
         self.area_names = list(config.topic_cfg["areas"].keys())
         self.knowledge_map = KnowledgeMap.from_areas(self.area_names)
+
         self.turn_count = 0
+
         self.history: list[dict] = [
             {"role": "system", "content": self._system_prompt()}
         ]
@@ -371,6 +427,12 @@ OPETUSTAPA:
 5. Jos opiskelija sanoo ymmärtävänsä, kysy pieni tarkistuskysymys.
 6. Käytä tarvittaessa vaiheittaista ajattelua, mutta älä tee opiskelijan tehtävää valmiiksi.
 
+AIHEEN JÄSENTÄMINEN:
+- Jos opiskelijan aihe on laaja, auta rajaamaan sitä.
+- Jos aihe on epämääräinen, kysy tarkentava kysymys ennen pitkää selitystä.
+- Kytke aihe kvantitatiivisen tutkimuksen näkökulmiin:
+  tutkimusongelma, muuttujat, mittaaminen, aineisto, analyysimenetelmä, tulkinta ja raportointi.
+
 VASTAUKSEN PITUUS:
 - Pidä vastaukset yleensä 3–7 lauseessa.
 - Jos opiskelija pyytää syvempää selitystä, voit vastata pidemmin.
@@ -391,6 +453,7 @@ RAJAT:
 - Älä keksi lähteitä.
 - Jos olet epävarma, sano se.
 - Jos opiskelija pyytää suoraan valmista vastausta palautettavaan tehtävään, auta häntä kysymyksillä ja rakenteella, älä kirjoita lopullista vastausta hänen puolestaan.
+- Älä pyydä henkilötietoja tai arkaluonteisia tietoja.
 
 KIELI:
 - Vastaa samalla kielellä kuin opiskelija. Oletuksena suomi.
@@ -412,6 +475,7 @@ KIELI:
                 messages=self.history,
                 temperature=self.config.temperature,
             )
+
             reply = response.choices[0].message.content
 
         except OpenAIError as e:
